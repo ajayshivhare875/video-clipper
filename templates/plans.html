@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Plans — ClipKaro{% endblock %}
+{% block body %}
+<h2>Choose your plan</h2>
+<p style="color:#999;font-size:14px">Pay with UPI — payment auto-verified, plan activates instantly.</p>
+{% for pid in order %}
+{% set p = plans[pid] %}
+<div class="plan {% if pid == current %}cur{% endif %}">
+  <h3>{{ p.name }} {% if pid == current %}<span class="badge">CURRENT</span>{% endif %}</h3>
+  <div class="price">₹{{ p.price }}{% if p.price %}<span style="font-size:13px;color:#999">/month</span>{% endif %}</div>
+  <ul>
+    <li>{{ p.clips }} AI/manual clips per month</li>
+    <li>Max upload {{ p.max_mb }}MB</li>
+    <li>AI viral-moment detection</li>
+    <li>Auto-captions + 9:16 reframe</li>
+  </ul>
+  {% if pid != 'free' and pid != current and billing_on %}
+    <a class="btn" href="/plans/buy/{{ pid }}">Buy {{ p.name }} — ₹{{ p.price }}/mo</a>
+  {% elif pid != 'free' and not billing_on %}
+    <div class="hint">Payments coming soon.</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
