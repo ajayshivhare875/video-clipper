@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ClipKaro{% endblock %}
+{% block body %}
+<div class="card">
+  <h3 style="margin-top:0">{{ plan.name }} plan {% if plan_id != 'free' %}<span class="badge">PRO</span>{% endif %}</h3>
+  <div style="font-size:14px;color:#bbb">{{ used }} / {{ limit }} clips used this month</div>
+  <div class="meter"><div style="width:{{ (used/limit*100)|round(1) if limit else 0 }}%"></div></div>
+  {% if quota_msg %}<div class="err">{{ quota_msg }}</div>{% endif %}
+  {% if plan_id == 'free' %}<a class="btn" href="/plans" style="margin-top:12px">Upgrade plan</a>{% endif %}
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">🤖 AI auto-clip</h3>
+  <p style="color:#999;font-size:13px">Upload a video — AI finds the best viral moments, adds captions, and cuts clips.</p>
+  {% if not ai_ready %}
+    <div class="err">AI clipping is not enabled on this server yet.</div>
+  {% else %}
+    <label>Video file (max {{ max_mb }}MB)</label>
+    <input type="file" id="aivideo" accept="video/*">
+    <div class="row">
+      <div><label>Number of clips</label>
+        <select id="aicount"><option>3</option><option selected>4</option><option>5</option></select></div>
+      <div><label>Caption style</label>
+        <select id="aistyle"><option value="bold">Bold yellow</option><option value="minimal">Minimal white</option><option value="neon">Neon</option></select></div>
+    </div>
+    <label class="check"><input type="checkbox" id="aivert" checked> Vertical 9:16 (Shorts/Reels)</label>
+    <label class="check"><input type="checkbox" id="aicap" checked> Burn captions into video</label>
+    <button class="btn" id="aigo" onclick="doAI()">Generate clips with AI</button>
+    <div id="aistatus"></div>
+    <div id="airesult"></div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">✂️ Manual clip</h3>
+  <label>Video file (max {{ max_mb }}MB)</label>
+  <input type="file" id="video" accept="video/*">
+  <div class="row">
+    <div><label>Start (mm:ss)</label><input type="text" id="start" placeholder="0:30"></div>
+    <div><label>End (mm:ss)</label><input type="text" id="end" placeholder="0:45"></div>
+  </div>
+  <button class="btn" id="go" onclick="doClip()">Cut clip</button>
+  <div id="status"></div>
+  <div id="result"></div>
+</div>
+<p class="hint">Max clip length {{ max_min }} min · Files auto-delete after 1 hour · 1 AI job = 1 clip of quota.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+async function doClip() {
+  const v = document.getElementById('video').files[0];
+  const st = document.getElementById('status'), rs = document.getElementById('result');
+  rs.innerHTML = '';
+  if (!v) { st.textContent = 'Please choose a video first.'; return; }
+  const btn = document.getElementById('go'); btn.disabled = true;
+  st.textContent = 'Uploading & cutting…';
+  const fd = new FormData();
+  fd.append('video', v);
+  fd.append('start', document.getElementById('start').value);
+  fd.append('end', document.getElementById('end').value);
+  try {
+    const r = await fetch('/clip', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.ok) { st.textContent = 'Done!'; rs.innerHTML = '<a class="btn green" href="' + d.download + '">Download ' + d.name + '</a>'; location.reload(); }
+    else st.textContent = 'Error: ' + (d.error || 'failed');
+  } catch (e) { st.textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
+}
+async function doAI() {
+  const v = document.getElementById('aivideo').files[0];
+  const st = document.getElementById('aistatus'), rs = document.getElementById('airesult');
+  rs.innerHTML = '';
+  if (!v) { st.textContent = 'Please choose a video first.'; return; }
+  const btn = document.getElementById('aigo'); btn.disabled = true;
+  st.textContent = 'Uploading…';
+  const fd = new FormData();
+  fd.append('video', v);
+  fd.append('count', document.getElementById('aicount').value);
+  fd.append('style', document.getElementById('aistyle').value);
+  fd.append('vertical', document.getElementById('aivert').checked ? 'on' : 'off');
+  fd.append('captions', document.getElementById('aicap').checked ? 'on' : 'off');
+  const r = await fetch('/ai-clip', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!d.ok) { st.textContent = 'Error: ' + (d.error || 'failed'); btn.disabled = false; return; }
+  pollJob(d.job_id, st, rs, btn);
+}
+async function pollJob(jid, st, rs, btn) {
+  const r = await fetch('/job/' + jid);
+  const d = await r.json();
+  if (!d.ok) { st.textContent = 'Error: ' + d.error; btn.disabled = false; return; }
+  st.textContent = d.stage + ' (' + d.progress + '%)';
+  if (d.status === 'done') {
+    st.textContent = 'Done! Your clips:';
+    rs.innerHTML = d.result.map((c, i) =>
+      '<div class="clipitem"><b>' + (i+1) + '. ' + c.title + '</b> <span class="score">🔥' + c.score + '</span><br>' +
+      '<span style="color:#999;font-size:13px">' + c.reason + '</span><br>' +
+      '<a href="' + c.download + '">⬇ Download</a></div>').join('');
+    btn.disabled = false; location.reload();
+  } else if (d.status === 'error') {
+    st.textContent = 'Error: ' + (d.error || 'failed'); btn.disabled = false;
+  } else {
+    setTimeout(() => pollJob(jid, st, rs, btn), 3000);
+  }
+}
+</script>
+{% endblock %}
