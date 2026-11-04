@@ -17,7 +17,10 @@
 {% if order_id %}
 <script>
 const oid = "{{ order_id }}", pl = "{{ plan_id }}";
+let tries = 0;
+const MAX_TRIES = 72; // 6 minutes of polling, then show pending message
 async function checkPay() {
+  tries++;
   try {
     const r = await fetch('/plans/order_status/' + oid + '?plan=' + pl);
     const d = await r.json();
@@ -26,7 +29,20 @@ async function checkPay() {
         '<span class="ok">Payment received! Plan activated. 🎉</span><br><a class="btn green" href="/dashboard">Go to Dashboard</a>';
       return;
     }
+    if (d.status === 'expired') {
+      document.getElementById('paystatus').innerHTML =
+        '<span class="err">This payment link expired. Please <a href="/plans" style="color:#a99cff">try again</a>.</span>';
+      return;
+    }
   } catch (e) {}
+  if (tries >= MAX_TRIES) {
+    document.getElementById('paystatus').innerHTML =
+      '<span class="ok">Thanks for your purchase! 🙏</span><br>' +
+      '<span style="color:#bbb">Your subscription will be activated within 1-2 hours.<br>' +
+      'If you face any problem, contact support with your Order ID: <b>' + oid + '</b></span><br>' +
+      '<a class="btn green" href="/dashboard" style="margin-top:10px">Go to Dashboard</a>';
+    return;
+  }
   setTimeout(checkPay, 5000);
 }
 checkPay();
