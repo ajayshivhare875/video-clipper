@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Pay — ClipKaro{% endblock %}
+{% block body %}
+<div class="card qr">
+  <h2 style="margin-top:0">{{ plan.name }} — ₹{{ plan.price }}/month</h2>
+  {% if err %}
+    <div class="err">{{ err }}</div>
+  {% else %}
+    <p style="color:#bbb;font-size:14px">Scan with any UPI app (GPay / PhonePe / Paytm) to pay ₹{{ plan.price }}</p>
+    {% if qr %}<img src="data:image/png;base64,{{ qr }}" alt="UPI QR">{% endif %}
+    {% if upi_link %}<p><a href="{{ upi_link }}" style="color:#a99cff">Open in UPI app</a></p>{% endif %}
+    <div id="paystatus" style="margin-top:12px;color:#bbb">Waiting for payment…</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% if order_id %}
+<script>
+const oid = "{{ order_id }}", pl = "{{ plan_id }}";
+async function checkPay() {
+  try {
+    const r = await fetch('/plans/order_status/' + oid + '?plan=' + pl);
+    const d = await r.json();
+    if (d.paid) {
+      document.getElementById('paystatus').innerHTML =
+        '<span class="ok">Payment received! Plan activated. 🎉</span><br><a class="btn green" href="/dashboard">Go to Dashboard</a>';
+      return;
+    }
+  } catch (e) {}
+  setTimeout(checkPay, 5000);
+}
+checkPay();
+</script>
+{% endif %}
+{% endblock %}
