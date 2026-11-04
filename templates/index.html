@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}ClipKaro — AI video clipper{% endblock %}
+{% block body %}
+<h1>Turn long videos into viral clips</h1>
+<p style="color:#999">AI finds the best moments, adds animated captions, and reframes for Shorts &amp; Reels. Pay with UPI.</p>
+<div class="card">
+  <h3 style="margin-top:0">How it works</h3>
+  <ol style="color:#bbb;font-size:15px;line-height:1.9">
+    <li>Upload your video</li>
+    <li>AI transcribes it &amp; picks the most viral moments</li>
+    <li>Get clips with captions, ready for Shorts/Reels</li>
+  </ol>
+  {% if user %}
+    <a class="btn" href="/dashboard">Go to Dashboard</a>
+  {% else %}
+    <a class="btn" href="/signup">Start free — 10 clips/month</a>
+  {% endif %}
+</div>
+<div class="card">
+  <h3 style="margin-top:0">Plans</h3>
+  <p style="color:#bbb;font-size:14px">Free 10 clips/mo · Basic ₹299 (30/mo) · Pro ₹399 (70/mo) · Premium ₹599 (150/mo)</p>
+  <a class="btn green" href="/plans">See all plans</a>
+</div>
+{% endblock %}
