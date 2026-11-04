@@ -103,6 +103,41 @@ def save_users(users):
         db_save(USERS_KEY, users)
 
 
+PENDING_KEY = "clipkaro.pending_orders"
+PENDING_FILE = os.path.join(DATA_DIR, "pending_orders.json")
+
+
+def _load_file_pending():
+    try:
+        with open(PENDING_FILE) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def load_pending_orders():
+    """order_id -> {email, plan, amount, ts}. For manual verification if auto-confirm fails."""
+    if db_enabled() and not _users_db_tainted:
+        doc = db_load(PENDING_KEY, _MISSING)
+        if doc is _MISSING:
+            return _load_file_pending()
+        if isinstance(doc, dict):
+            return doc
+    return _load_file_pending()
+
+
+def save_pending_orders(po):
+    try:
+        tmp = PENDING_FILE + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(po, fh)
+        os.replace(tmp, PENDING_FILE)
+    except OSError:
+        pass
+    if db_enabled() and not _users_db_tainted:
+        db_save(PENDING_KEY, po)
+
+
 def current_month():
     return datetime.now(timezone.utc).strftime("%Y-%m")
 
@@ -701,6 +736,14 @@ def buy_plan(plan_id):
     if not order.get("order_id"):
         return render_template("buy.html", user=user, plan=plan, plan_id=plan_id,
                                err=f"Order failed: {order.get('error', 'unknown error')}")
+    # record pending purchase so the owner can manually verify later if auto-confirm fails
+    try:
+        po = load_pending_orders()
+        po[order["order_id"]] = {"email": user["email"], "plan": plan_id,
+                                 "amount": plan["price"], "ts": time.time()}
+        save_pending_orders(po)
+    except Exception:
+        pass
     return render_template("buy.html", user=user, plan=plan, plan_id=plan_id,
                            order_id=order["order_id"],
                            qr=order.get("qr_base64", ""),
@@ -729,6 +772,12 @@ def buy_status(order_id):
             u["clips_used"] = 0
             users[user["email"]] = u
             save_users(users)
+        try:
+            po = load_pending_orders()
+            po.pop(order_id, None)
+            save_pending_orders(po)
+        except Exception:
+            pass
         return jsonify(ok=True, paid=True)
     return jsonify(ok=True, paid=False, status=status)
 
