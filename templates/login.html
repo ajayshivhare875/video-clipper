@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log in — ClipKaro{% endblock %}
+{% block body %}
+<div class="card">
+  <h2 style="margin-top:0">Welcome back</h2>
+  <form method="post">
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    {% if err %}<div class="err">{{ err }}</div>{% endif %}
+    <button class="btn" type="submit">Log in</button>
+  </form>
+  <p class="hint">No account? <a href="/signup" style="color:#a99cff">Sign up free</a></p>
+</div>
+{% endblock %}
